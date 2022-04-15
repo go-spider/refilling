@@ -1,2 +1,3 @@
 # IDEA 无限续杯
-前提是安装了eval reset插件
+* 1、安装了eval reset插件
+
