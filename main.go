@@ -1,18 +1,32 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
 	"time"
 )
+
+func JetBrianDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home +"\\AppData\\Roaming\\JetBrains\\"
+	}
+	return os.Getenv("HOME")+"/.config/JetBrains/"
+}
 
 type WriteFile struct {
 	KeyContent []byte
 }
-
 
 func (w *WriteFile)writeKey(filename string) error{
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 666)
@@ -48,9 +62,9 @@ func main() {
 	writeBuffer[7] = byte(uint64(timeMill) >> 0)
 	wk := WriteFile{KeyContent: writeBuffer}
 	var filename string
-	flag.StringVar(&filename, "f", "", "f不为空在当前目录生成evaluation.key，否则按config文件路径批量替换key")
+	flag.StringVar(&filename, "f", "", "f不为空在当前目录生成evaluation.key，否则批量替换key(仅适用于Windows&Linux)")
 	flag.Parse()
-	if filename!=""{
+	if filename != ""{
 		err := wk.writeKey(filename)
 		if err != nil {
 			fmt.Printf("Error: %s\n", err)
@@ -58,26 +72,37 @@ func main() {
 		}
 		fmt.Println(filename)
 	}else{
-		f, err := os.Open("config")
+		IntelliPath := filepath.FromSlash(JetBrianDir())
+		fileInfoList,err := ioutil.ReadDir(IntelliPath)
 		if err != nil {
-			fmt.Printf("Error: %s\n", err)
-			return
+			log.Fatal(err)
 		}
-		defer func() {
-			_ = f.Close()
-		}()
-		br := bufio.NewReader(f)
-		for {
-			line, _, c := br.ReadLine()
-			if c == io.EOF {
-				break
+		reg := regexp.MustCompile(`.?(IntelliJIdea|GoLand|CLion|PyCharm|DataGrip|RubyMine|AppCode|PhpStorm|WebStorm|Rider|idea).*`)
+		for i := range fileInfoList {
+			if fileInfoList[i].IsDir(){
+				dirName := fileInfoList[i].Name()
+				if reg.Match([]byte(dirName)){
+					evalPath := filepath.Join(IntelliPath+dirName,"eval")
+					keyList,err := ioutil.ReadDir(evalPath)
+					if err != nil {
+						log.Fatal(err)
+					}
+					for j :=range keyList{
+						if !keyList[j].IsDir(){
+							keyName := keyList[j].Name()
+							if reg.Match([]byte(keyName)){
+								keyPath := filepath.Join(evalPath,keyName)
+								fmt.Println(keyPath)
+								err := wk.writeKey(keyPath)
+								if err != nil {
+									fmt.Printf("Error: %s\n", err)
+								}
+							}
+						}
+					}
+				}
 			}
-			err := wk.writeKey(string(line))
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-			}
-			fmt.Println(string(line))
 		}
 	}
-	}
+}
 
