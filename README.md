@@ -4,5 +4,5 @@
 ```
 Usage of eval.exe:
   -f string
-        f不为空在当前目录生成evaluation.key，否则按config文件路径批量替换key
+        f不为空在当前目录生成xxxx.key，否则按config文件路径批量替换key
 ```
